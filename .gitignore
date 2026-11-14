@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+backups/
+backend/uploads/*
+!backend/uploads/.gitkeep
+.DS_Store
+*.log
+
+# тимчасові файли збирання звіту
+report/_build.md

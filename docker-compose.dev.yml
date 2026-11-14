@@ -1,0 +1,7 @@
+# Доповнення для розробки: відкриває порт бази на localhost:5433,
+# щоб запускати API і тести без Docker (npm run dev / npm test).
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
+services:
+  db:
+    ports:
+      - "127.0.0.1:5433:5432"
