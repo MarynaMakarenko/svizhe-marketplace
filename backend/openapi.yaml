@@ -1,0 +1,1269 @@
+openapi: "3.0.3"
+info:
+  title: "Свіже — API маркетплейсу"
+  version: "1.0.0"
+  description: "REST API маркетплейсу локальних продуктів «Свіже».\n\nЩоб викликати захищені маршрути: виконайте `POST /auth/login`, скопіюйте `token` з відповіді, натисніть **Authorize** і вставте його.\n\nУсі помилки мають вигляд `{ \"error\": \"текст\", \"details\": [...] }`."
+servers:
+  - url: "/api"
+tags:
+  - name: "Система"
+  - name: "Акаунт"
+  - name: "Каталог"
+  - name: "Кошик"
+  - name: "Замовлення"
+  - name: "Кабінет продавця"
+  - name: "Адміністрування"
+paths:
+  "/health":
+    get:
+      tags: ["Система"]
+      summary: "Перевірка стану сервера та бази"
+      responses:
+        "200":
+          description: "Успішно"
+  "/auth/register":
+    post:
+      tags: ["Акаунт"]
+      summary: "Реєстрація покупця або продавця"
+      responses:
+        "201":
+          description: "Створено; повертає токен і користувача"
+        "400":
+          description: "Некоректні дані"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: "Email або назва магазину вже зайняті"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["email", "password", "full_name"]
+              properties:
+                email:
+                  type: "string"
+                password:
+                  type: "string"
+                  minLength: 6
+                full_name:
+                  type: "string"
+                phone:
+                  type: "string"
+                role:
+                  type: "string"
+                  enum: ["buyer", "seller"]
+                shop_name:
+                  type: "string"
+                  description: "Обов'язково для продавця"
+                city:
+                  type: "string"
+                description:
+                  type: "string"
+            example:
+              email: "new@example.com"
+              password: "secret123"
+              full_name: "Іван Петренко"
+              role: "buyer"
+  "/auth/login":
+    post:
+      tags: ["Акаунт"]
+      summary: "Вхід"
+      responses:
+        "200":
+          description: "Повертає токен і користувача"
+        "401":
+          description: "Невірний email або пароль"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["email", "password"]
+              properties:
+                email:
+                  type: "string"
+                password:
+                  type: "string"
+            example:
+              email: "buyer@svizhe.ua"
+              password: "demo1234"
+  "/auth/me":
+    get:
+      tags: ["Акаунт"]
+      summary: "Поточний користувач"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **будь-яка**."
+    patch:
+      tags: ["Акаунт"]
+      summary: "Змінити ім'я та телефон"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **будь-яка**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["full_name"]
+              properties:
+                full_name:
+                  type: "string"
+                phone:
+                  type: "string"
+            example: null
+  "/categories":
+    get:
+      tags: ["Каталог"]
+      summary: "Список категорій з кількістю товарів"
+      responses:
+        "200":
+          description: "Успішно"
+  "/products":
+    get:
+      tags: ["Каталог"]
+      summary: "Пошук товарів"
+      responses:
+        "200":
+          description: "Успішно"
+      parameters:
+        - name: "search"
+          in: "query"
+          schema:
+            type: "string"
+          description: "Частина назви"
+        - name: "category"
+          in: "query"
+          schema:
+            type: "string"
+          description: "Slug категорії"
+        - name: "seller"
+          in: "query"
+          schema:
+            type: "integer"
+          description: "ID продавця"
+        - name: "min_price"
+          in: "query"
+          schema:
+            type: "number"
+          description: "Мінімальна ціна"
+        - name: "max_price"
+          in: "query"
+          schema:
+            type: "number"
+          description: "Максимальна ціна"
+        - name: "in_stock"
+          in: "query"
+          schema:
+            type: "boolean"
+          description: "Лише в наявності"
+        - name: "sort"
+          in: "query"
+          schema:
+            type: "string"
+            enum: ["new", "price_asc", "price_desc", "rating"]
+          description: "Сортування"
+        - name: "page"
+          in: "query"
+          schema:
+            type: "integer"
+          description: "Сторінка, з 1"
+        - name: "limit"
+          in: "query"
+          schema:
+            type: "integer"
+          description: "Товарів на сторінку (1–48, типово 12)"
+  "/products/{id}":
+    get:
+      tags: ["Каталог"]
+      summary: "Картка товару з відгуками"
+      responses:
+        "200":
+          description: "Успішно"
+        "404":
+          description: "Товар не знайдено"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+  "/products/{id}/reviews":
+    post:
+      tags: ["Каталог"]
+      summary: "Залишити відгук"
+      responses:
+        "201":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: "Відгук уже залишено"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **buyer**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["rating"]
+              properties:
+                rating:
+                  type: "integer"
+                  minimum: 1
+                  maximum: 5
+                comment:
+                  type: "string"
+            example: null
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+  "/sellers/{id}":
+    get:
+      tags: ["Каталог"]
+      summary: "Публічна сторінка магазину"
+      responses:
+        "200":
+          description: "Успішно"
+        "404":
+          description: "Магазин не знайдено"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+  "/cart":
+    get:
+      tags: ["Кошик"]
+      summary: "Вміст кошика"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **buyer**."
+    post:
+      tags: ["Кошик"]
+      summary: "Додати товар (кількість додається до наявної)"
+      responses:
+        "201":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: "На складі менше, ніж потрібно"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **buyer**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["product_id"]
+              properties:
+                product_id:
+                  type: "integer"
+                quantity:
+                  type: "integer"
+            example: null
+    delete:
+      tags: ["Кошик"]
+      summary: "Очистити кошик"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **buyer**."
+  "/cart/{productId}":
+    put:
+      tags: ["Кошик"]
+      summary: "Встановити кількість"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: "На складі менше, ніж потрібно"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **buyer**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["quantity"]
+              properties:
+                quantity:
+                  type: "integer"
+            example: null
+      parameters:
+        - name: "productId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+    delete:
+      tags: ["Кошик"]
+      summary: "Прибрати товар"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **buyer**."
+      parameters:
+        - name: "productId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+  "/orders":
+    post:
+      tags: ["Замовлення"]
+      summary: "Оформити замовлення з кошика"
+      responses:
+        "201":
+          description: "Створено; по одному замовленню на кожного продавця"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "400":
+          description: "Кошик порожній або некоректні дані"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: "Товару не вистачає на складі"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **buyer**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["delivery_address", "phone"]
+              properties:
+                delivery_address:
+                  type: "string"
+                phone:
+                  type: "string"
+                comment:
+                  type: "string"
+            example:
+              delivery_address: "м. Київ, вул. Володимирська, 60"
+              phone: "+380 93 123 45 67"
+    get:
+      tags: ["Замовлення"]
+      summary: "Мої замовлення"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **buyer**."
+  "/orders/{id}":
+    get:
+      tags: ["Замовлення"]
+      summary: "Одне замовлення"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "404":
+          description: "Не знайдено"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **buyer**."
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+  "/orders/{id}/cancel":
+    post:
+      tags: ["Замовлення"]
+      summary: "Скасувати замовлення (лише у статусі new)"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "404":
+          description: "Не знайдено"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **buyer**."
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+  "/seller/profile":
+    get:
+      tags: ["Кабінет продавця"]
+      summary: "Профіль магазину"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **seller**."
+    patch:
+      tags: ["Кабінет продавця"]
+      summary: "Змінити профіль магазину"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **seller**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["shop_name"]
+              properties:
+                shop_name:
+                  type: "string"
+                description:
+                  type: "string"
+                city:
+                  type: "string"
+            example: null
+  "/seller/stats":
+    get:
+      tags: ["Кабінет продавця"]
+      summary: "Зведення: товари, замовлення, виручка"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **seller**."
+  "/seller/upload":
+    post:
+      tags: ["Кабінет продавця"]
+      summary: "Завантажити фото товару (JPG/PNG/WebP до 3 МБ)"
+      responses:
+        "201":
+          description: "Повертає { url }"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **seller**."
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              properties:
+                image:
+                  type: "string"
+                  format: "binary"
+  "/seller/products":
+    get:
+      tags: ["Кабінет продавця"]
+      summary: "Мої товари"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **seller**."
+    post:
+      tags: ["Кабінет продавця"]
+      summary: "Додати товар"
+      responses:
+        "201":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "400":
+          description: "Некоректні дані"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **seller**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["name", "price", "stock", "category_id"]
+              properties:
+                name:
+                  type: "string"
+                description:
+                  type: "string"
+                price:
+                  type: "number"
+                unit:
+                  type: "string"
+                stock:
+                  type: "integer"
+                category_id:
+                  type: "integer"
+                image_url:
+                  type: "string"
+                is_active:
+                  type: "boolean"
+            example:
+              name: "Мед липовий"
+              description: "Світлий ароматний мед"
+              price: 240
+              unit: "банка 0,5 л"
+              stock: 50
+              category_id: 5
+              image_url: "/uploads/abc.jpg"
+              is_active: true
+  "/seller/products/{id}":
+    put:
+      tags: ["Кабінет продавця"]
+      summary: "Змінити товар"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "404":
+          description: "Не знайдено"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **seller**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["name", "price", "stock", "category_id"]
+              properties:
+                name:
+                  type: "string"
+                description:
+                  type: "string"
+                price:
+                  type: "number"
+                unit:
+                  type: "string"
+                stock:
+                  type: "integer"
+                category_id:
+                  type: "integer"
+                image_url:
+                  type: "string"
+                is_active:
+                  type: "boolean"
+            example:
+              name: "Мед липовий"
+              description: "Світлий ароматний мед"
+              price: 240
+              unit: "банка 0,5 л"
+              stock: 50
+              category_id: 5
+              image_url: "/uploads/abc.jpg"
+              is_active: true
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+    delete:
+      tags: ["Кабінет продавця"]
+      summary: "Видалити товар"
+      responses:
+        "204":
+          description: "Видалено"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "404":
+          description: "Не знайдено"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **seller**."
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+  "/seller/orders":
+    get:
+      tags: ["Кабінет продавця"]
+      summary: "Замовлення магазину"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **seller**."
+      parameters:
+        - name: "status"
+          in: "query"
+          schema:
+            type: "string"
+            enum: ["new", "confirmed", "shipped", "delivered", "cancelled"]
+          description: "Фільтр за статусом"
+  "/seller/orders/{id}/status":
+    patch:
+      tags: ["Кабінет продавця"]
+      summary: "Змінити статус замовлення"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: "Такий перехід статусу заборонено"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **seller**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["status"]
+              properties:
+                status:
+                  type: "string"
+                  enum: ["new", "confirmed", "shipped", "delivered", "cancelled"]
+            example: null
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+  "/admin/stats":
+    get:
+      tags: ["Адміністрування"]
+      summary: "Зведення по майданчику"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **admin**."
+  "/admin/sellers":
+    get:
+      tags: ["Адміністрування"]
+      summary: "Список продавців"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **admin**."
+      parameters:
+        - name: "status"
+          in: "query"
+          schema:
+            type: "string"
+            enum: ["pending", "approved", "rejected"]
+          description: "Фільтр за статусом"
+  "/admin/sellers/{id}":
+    patch:
+      tags: ["Адміністрування"]
+      summary: "Схвалити або відхилити продавця"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **admin**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["status"]
+              properties:
+                status:
+                  type: "string"
+                  enum: ["pending", "approved", "rejected"]
+            example: null
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+  "/admin/users":
+    get:
+      tags: ["Адміністрування"]
+      summary: "Список користувачів"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **admin**."
+  "/admin/users/{id}":
+    patch:
+      tags: ["Адміністрування"]
+      summary: "Заблокувати або розблокувати користувача"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **admin**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["is_blocked"]
+              properties:
+                is_blocked:
+                  type: "boolean"
+            example: null
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+  "/admin/categories":
+    post:
+      tags: ["Адміністрування"]
+      summary: "Створити категорію"
+      responses:
+        "201":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: "Назва або slug уже зайняті"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **admin**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["name", "slug"]
+              properties:
+                name:
+                  type: "string"
+                slug:
+                  type: "string"
+                icon:
+                  type: "string"
+            example:
+              name: "Риба"
+              slug: "ryba"
+              icon: "🐟"
+  "/admin/categories/{id}":
+    put:
+      tags: ["Адміністрування"]
+      summary: "Змінити категорію"
+      responses:
+        "200":
+          description: "Успішно"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **admin**."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["name", "slug"]
+              properties:
+                name:
+                  type: "string"
+                slug:
+                  type: "string"
+                icon:
+                  type: "string"
+            example:
+              name: "Риба"
+              slug: "ryba"
+              icon: "🐟"
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+    delete:
+      tags: ["Адміністрування"]
+      summary: "Видалити категорію"
+      responses:
+        "204":
+          description: "Видалено"
+        "401":
+          description: "Немає токена або він недійсний"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Недостатньо прав або акаунт заблоковано"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: "У категорії є товари"
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Error"
+      security:
+        - bearerAuth: []
+      description: "Потрібна роль: **admin**."
+      parameters:
+        - name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  schemas:
+    Error:
+      type: "object"
+      properties:
+        error:
+          type: "string"
+        details:
+          type: "array"
+          items:
+            type: "string"
