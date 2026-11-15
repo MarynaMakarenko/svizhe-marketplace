@@ -1,0 +1,27 @@
+{
+  "name": "svizhe-backend",
+  "version": "1.0.0",
+  "description": "Системна частина (REST API) маркетплейсу «Свіже»",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "migrate": "node src/migrate.js",
+    "seed": "node src/seed.js",
+    "test": "node --test --test-concurrency=1 \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "pg": "^8.16.3",
+    "swagger-ui-express": "^5.0.1",
+    "yaml": "^2.8.1"
+  }
+}
